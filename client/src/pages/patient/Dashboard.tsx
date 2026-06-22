@@ -34,9 +34,9 @@ interface Message { role: 'user' | 'bot'; text: string; time: string }
 const urgencyColor: Record<string, string> = {
     High: '#ef4444', Medium: '#f59e0b', Low: '#10b981'
 }
-const urgencyBg: Record<string, string> = {
-    High: 'rgba(239,68,68,0.12)', Medium: 'rgba(245,158,11,0.12)', Low: 'rgba(16,185,129,0.12)'
-}
+// const urgencyBg: Record<string, string> = {
+//     High: 'rgba(239,68,68,0.12)', Medium: 'rgba(245,158,11,0.12)', Low: 'rgba(16,185,129,0.12)'
+// }
 
 function PrescriptionsTab({ isMobile }: { isMobile: boolean }) {
     const [prescriptions, setPrescriptions] = useState<Prescription[]>([])
@@ -450,7 +450,7 @@ export default function PatientDashboard() {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [notification, setNotification] = useState<string | null>(null)
-    const [conversationStage, setConversationStage] = useState<'initial' | 'awaiting_followup' | 'done'>('initial')
+    const [, setConversationStage] = useState<'initial' | 'awaiting_followup' | 'done'>('initial')
 
     function now() { return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
 
