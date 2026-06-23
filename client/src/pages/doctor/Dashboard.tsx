@@ -27,9 +27,253 @@ interface Task {
     createdAt: string
 }
 
+interface Availability {
+    workingDays: string[]
+    startTime: string
+    endTime: string
+    blockedDates: string[]
+}
+
 const urgencyColor: Record<string, string> = { High: '#ef4444', Medium: '#f59e0b', Low: '#10b981' }
 const urgencyBg: Record<string, string> = { High: 'rgba(239,68,68,0.1)', Medium: 'rgba(245,158,11,0.1)', Low: 'rgba(16,185,129,0.1)' }
 const statusColor: Record<string, string> = { Pending: '#f59e0b', 'In Progress': '#7F77DD', Completed: '#10b981' }
+
+const ALL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+function AvailabilityTab({ isMobile }: { isMobile: boolean }) {
+    const [availability, setAvailability] = useState<Availability>({
+        workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        startTime: '08:00',
+        endTime: '17:00',
+        blockedDates: []
+    })
+    const [loading, setLoading] = useState(true)
+    const [saving, setSaving] = useState(false)
+    const [saved, setSaved] = useState(false)
+    const [newBlockedDate, setNewBlockedDate] = useState('')
+
+    useEffect(() => {
+        api.get('/availability/my')
+            .then(r => setAvailability(r.data))
+            .catch(() => { })
+            .finally(() => setLoading(false))
+    }, [])
+
+    const toggleDay = (day: string) => {
+        setAvailability(prev => ({
+            ...prev,
+            workingDays: prev.workingDays.includes(day)
+                ? prev.workingDays.filter(d => d !== day)
+                : [...prev.workingDays, day]
+        }))
+    }
+
+    const addBlockedDate = () => {
+        if (!newBlockedDate || availability.blockedDates.includes(newBlockedDate)) return
+        setAvailability(prev => ({
+            ...prev,
+            blockedDates: [...prev.blockedDates, newBlockedDate].sort()
+        }))
+        setNewBlockedDate('')
+    }
+
+    const removeBlockedDate = (date: string) => {
+        setAvailability(prev => ({
+            ...prev,
+            blockedDates: prev.blockedDates.filter(d => d !== date)
+        }))
+    }
+
+    const saveAvailability = async () => {
+        setSaving(true)
+        try {
+            await api.put('/availability/my', availability)
+            setSaved(true)
+            setTimeout(() => setSaved(false), 3000)
+        } catch (_) { }
+        finally { setSaving(false) }
+    }
+
+    const inputStyle = {
+        background: '#1c2128',
+        border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: 8,
+        padding: '0.6rem 0.85rem',
+        color: 'white',
+        fontSize: '0.85rem',
+        outline: 'none',
+        fontFamily: 'inherit',
+        colorScheme: 'dark' as const
+    }
+
+    const labelStyle = {
+        display: 'block' as const,
+        fontSize: '0.75rem',
+        color: '#9ca3af',
+        marginBottom: '0.35rem',
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.5px'
+    }
+
+    if (loading) return (
+        <div style={{ padding: '4rem', textAlign: 'center', color: '#6b7280' }}>
+            Loading availability...
+        </div>
+    )
+
+    const today = new Date().toISOString().split('T')[0]
+
+    return (
+        <div style={{ padding: isMobile ? '1.25rem' : '2rem', maxWidth: 700 }}>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'white', marginBottom: '0.25rem' }}>My Availability</h2>
+            <p style={{ color: '#6b7280', fontSize: '0.82rem', marginBottom: '1.5rem' }}>
+                Set your working days, hours, and block dates when you're unavailable
+            </p>
+
+            {saved && (
+                <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: '#10b981', padding: '0.75rem 1rem', borderRadius: 10, marginBottom: '1rem', fontSize: '0.875rem' }}>
+                    ✅ Availability saved successfully!
+                </div>
+            )}
+
+            {/* Working Days */}
+            <div style={{ background: '#161b22', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: '1.5rem', marginBottom: '1rem' }}>
+                <div style={{ fontWeight: 600, color: 'white', fontSize: '0.95rem', marginBottom: '1rem' }}>
+                    📅 Working Days
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    {ALL_DAYS.map(day => (
+                        <button
+                            key={day}
+                            onClick={() => toggleDay(day)}
+                            style={{
+                                padding: '0.5rem 1rem',
+                                background: availability.workingDays.includes(day) ? 'rgba(127,119,221,0.2)' : '#1c2128',
+                                border: `1px solid ${availability.workingDays.includes(day) ? 'rgba(127,119,221,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                                borderRadius: 8,
+                                color: availability.workingDays.includes(day) ? '#7F77DD' : '#9ca3af',
+                                cursor: 'pointer',
+                                fontSize: '0.82rem',
+                                fontWeight: availability.workingDays.includes(day) ? 600 : 400,
+                                transition: 'all 0.15s'
+                            }}
+                        >
+                            {day.slice(0, 3)}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Working Hours */}
+            <div style={{ background: '#161b22', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: '1.5rem', marginBottom: '1rem' }}>
+                <div style={{ fontWeight: 600, color: 'white', fontSize: '0.95rem', marginBottom: '1rem' }}>
+                    🕐 Working Hours
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div>
+                        <label style={labelStyle}>Start Time</label>
+                        <input
+                            type="time"
+                            value={availability.startTime}
+                            onChange={e => setAvailability(prev => ({ ...prev, startTime: e.target.value }))}
+                            style={{ ...inputStyle, width: '100%', boxSizing: 'border-box' as const }}
+                        />
+                    </div>
+                    <div>
+                        <label style={labelStyle}>End Time</label>
+                        <input
+                            type="time"
+                            value={availability.endTime}
+                            onChange={e => setAvailability(prev => ({ ...prev, endTime: e.target.value }))}
+                            style={{ ...inputStyle, width: '100%', boxSizing: 'border-box' as const }}
+                        />
+                    </div>
+                </div>
+                <div style={{ marginTop: '0.75rem', fontSize: '0.78rem', color: '#6b7280' }}>
+                    Appointment slots will be generated every 30 minutes between these hours
+                </div>
+            </div>
+
+            {/* Blocked Dates */}
+            <div style={{ background: '#161b22', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: '1.5rem', marginBottom: '1.5rem' }}>
+                <div style={{ fontWeight: 600, color: 'white', fontSize: '0.95rem', marginBottom: '1rem' }}>
+                    🚫 Blocked Dates
+                </div>
+                <p style={{ fontSize: '0.82rem', color: '#6b7280', marginBottom: '1rem' }}>
+                    Add dates when you won't be available (e.g. holidays, leave days)
+                </p>
+
+                <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem' }}>
+                    <input
+                        type="date"
+                        value={newBlockedDate}
+                        min={today}
+                        onChange={e => setNewBlockedDate(e.target.value)}
+                        style={{ ...inputStyle, flex: 1 }}
+                    />
+                    <button
+                        onClick={addBlockedDate}
+                        disabled={!newBlockedDate}
+                        style={{
+                            padding: '0.6rem 1rem',
+                            background: newBlockedDate ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.05)',
+                            border: `1px solid ${newBlockedDate ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                            color: newBlockedDate ? '#ef4444' : '#6b7280',
+                            borderRadius: 8,
+                            cursor: newBlockedDate ? 'pointer' : 'not-allowed',
+                            fontSize: '0.82rem',
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap' as const
+                        }}
+                    >
+                        + Block Date
+                    </button>
+                </div>
+
+                {availability.blockedDates.length === 0 ? (
+                    <div style={{ padding: '1rem', background: '#0d1117', borderRadius: 8, textAlign: 'center', color: '#6b7280', fontSize: '0.82rem' }}>
+                        No blocked dates — you're available on all working days
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {availability.blockedDates.map(date => (
+                            <div key={date} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 8, padding: '0.6rem 0.9rem' }}>
+                                <span style={{ color: '#fca5a5', fontSize: '0.85rem' }}>
+                                    🚫 {new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                </span>
+                                <button
+                                    onClick={() => removeBlockedDate(date)}
+                                    style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.9rem', padding: '0 0.25rem' }}
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <button
+                onClick={saveAvailability}
+                disabled={saving}
+                style={{
+                    width: '100%',
+                    padding: '0.85rem',
+                    background: saving ? 'rgba(127,119,221,0.3)' : '#7F77DD',
+                    border: 'none',
+                    borderRadius: 10,
+                    color: 'white',
+                    fontWeight: 600,
+                    fontSize: '0.95rem',
+                    cursor: saving ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s'
+                }}
+            >
+                {saving ? 'Saving...' : '💾 Save Availability'}
+            </button>
+        </div>
+    )
+}
 
 
 function ConsultationHistoryTab({ isMobile }: { isMobile: boolean }) {
@@ -219,7 +463,7 @@ function DoctorAppointmentsTab({ isMobile }: { isMobile: boolean }) {
 export default function DoctorDashboard() {
     const { user, logout } = useAuth()
     const navigate = useNavigate()
-    const [activeTab, setActiveTab] = useState<'overview' | 'queue' | 'tasks' | 'messages' | 'history' | 'appointments'>('overview')
+    const [activeTab, setActiveTab] = useState<'overview' | 'queue' | 'tasks' | 'messages' | 'history' | 'appointments' | 'availability'>('overview')
     const [queue, setQueue] = useState<QueuePatient[]>([])
     const [tasks, setTasks] = useState<Task[]>([])
     const [selectedPatient, setSelectedPatient] = useState<QueuePatient | null>(null)
@@ -290,10 +534,11 @@ export default function DoctorDashboard() {
     const navItems = [
         { id: 'overview', label: 'Overview', icon: '📊' },
         { id: 'appointments', label: 'Appointments', icon: '📅' },
+        { id: 'availability', label: 'Availability', icon: '🗓️' },
         { id: 'queue', label: 'Patient Queue', icon: '👥' },
         { id: 'tasks', label: 'Tasks', icon: '✅' },
         { id: 'messages', label: 'Messages', icon: '💬' },
-        { id: 'history', label: 'Consultations', icon: '📅' },
+        { id: 'history', label: 'Consultations', icon: '📋' },
     ]
 
     const inputStyle = { width: '100%', background: '#1c2128', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '0.6rem 0.85rem', color: 'white', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' as const, fontFamily: 'inherit' }
@@ -304,7 +549,7 @@ export default function DoctorDashboard() {
             width: isMobile ? '100%' : 240, background: '#0d1117', borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', padding: '1.5rem 1rem', gap: '0.35rem', flexShrink: 0, height: isMobile ? 'auto' : '100vh', position: isMobile ? 'fixed' : 'sticky', top: 0, left: 0, zIndex: isMobile ? 200 : 1, minHeight: '100vh', justifyContent: 'space-between', transform: isMobile ? (sidebarOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none', transition: 'transform 0.3s ease', boxShadow: isMobile && sidebarOpen ? '4px 0 24px rgba(0,0,0,0.5)' : 'none', overflowY: 'auto'
         }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0.5rem 0.5rem 0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                <div style={{ width: 36, height: 36, background: '#7F77DD', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16 }}>+</div>
+                <div style={{ width: 36, height: 36, background: '#7F77DD', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, color: 'white' }}>+</div>
                 <div>
                     <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'white' }}>MediCore</div>
                     <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>Doctor Portal</div>
@@ -390,10 +635,10 @@ export default function DoctorDashboard() {
                     <div style={{ fontWeight: 600, color: 'white', marginBottom: '0.35rem' }}>Patient Queue</div>
                     <div style={{ fontSize: '0.82rem', color: '#6b7280' }}>{waiting.length} waiting · {inConsult.length} in consultation</div>
                 </div>
-                <div onClick={() => setActiveTab('tasks')} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 14, padding: '1.5rem', cursor: 'pointer' }}>
-                    <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>✅</div>
-                    <div style={{ fontWeight: 600, color: 'white', marginBottom: '0.35rem' }}>Manage Tasks</div>
-                    <div style={{ fontSize: '0.82rem', color: '#6b7280' }}>{tasks.filter(t => t.status === 'Pending').length} pending · {tasks.filter(t => t.status === 'In Progress').length} in progress</div>
+                <div onClick={() => setActiveTab('availability')} style={{ background: 'rgba(29,158,117,0.08)', border: '1px solid rgba(29,158,117,0.2)', borderRadius: 14, padding: '1.5rem', cursor: 'pointer' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🗓️</div>
+                    <div style={{ fontWeight: 600, color: 'white', marginBottom: '0.35rem' }}>My Availability</div>
+                    <div style={{ fontSize: '0.82rem', color: '#6b7280' }}>Set working days, hours and block dates</div>
                 </div>
             </div>
         </div>
@@ -585,6 +830,7 @@ export default function DoctorDashboard() {
                     {activeTab === 'queue' && queueTab}
                     {activeTab === 'tasks' && tasksTab}
                     {activeTab === 'appointments' && <DoctorAppointmentsTab isMobile={isMobile} />}
+                    {activeTab === 'availability' && <AvailabilityTab isMobile={isMobile} />}
                     {activeTab === 'history' && <ConsultationHistoryTab isMobile={isMobile} />}
                     {activeTab === 'messages' && (
                         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -596,8 +842,8 @@ export default function DoctorDashboard() {
                 {isMobile && (
                     <div style={{ background: '#0d1117', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-around', padding: '0.5rem 0' }}>
                         {navItems.map(item => (
-                            <button key={item.id} onClick={() => setActiveTab(item.id as typeof activeTab)} style={{ background: 'transparent', border: 'none', color: activeTab === item.id ? '#7F77DD' : '#6b7280', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', padding: '0.4rem 0.75rem', borderRadius: 8, fontSize: '0.62rem', fontWeight: activeTab === item.id ? 600 : 400, position: 'relative' }}>
-                                <span style={{ fontSize: '1.2rem' }}>{item.icon}</span>
+                            <button key={item.id} onClick={() => setActiveTab(item.id as typeof activeTab)} style={{ background: 'transparent', border: 'none', color: activeTab === item.id ? '#7F77DD' : '#6b7280', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', padding: '0.4rem 0.5rem', borderRadius: 8, fontSize: '0.58rem', fontWeight: activeTab === item.id ? 600 : 400, position: 'relative' }}>
+                                <span style={{ fontSize: '1.1rem' }}>{item.icon}</span>
                                 {item.label.split(' ')[0]}
                                 {item.id === 'queue' && highPriority.length > 0 && <span style={{ position: 'absolute', top: 2, right: 6, width: 8, height: 8, background: '#ef4444', borderRadius: '50%' }} />}
                             </button>

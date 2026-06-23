@@ -19,33 +19,70 @@ module.exports = (io) => {
   });
 
   // Get available slots for a doctor on a date
-  router.get("/slots/:doctorId/:date", authenticate, async (req, res) => {
+    router.get("/slots/:doctorId/:date", authenticate, async (req, res) => {
     try {
       const { doctorId, date } = req.params;
+      const Availability = require("../models/Availability");
 
-      // Generate all slots 8am - 5pm every 30 mins
-      const allSlots = [];
-      for (let h = 8; h < 17; h++) {
-        allSlots.push(`${String(h).padStart(2, "0")}:00`);
-        allSlots.push(`${String(h).padStart(2, "0")}:30`);
+      // Get doctor availability
+      let availability = await Availability.findOne({ doctorId });
+      if (!availability) {
+        availability = {
+          workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+          startTime: "08:00",
+          endTime: "17:00",
+          blockedDates: [],
+        };
       }
 
-      // Find booked slots
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
+      // Check if date is blocked
+      if (availability.blockedDates?.includes(date)) {
+        return res.json({
+          availableSlots: [],
+          reason: "Doctor is not available on this date",
+        });
+      }
 
+      // Check if date falls on a working day
+      const dayName = new Date(date + "T00:00:00").toLocaleDateString("en-US", {
+        weekday: "long",
+      });
+      if (!availability.workingDays.includes(dayName)) {
+        return res.json({
+          availableSlots: [],
+          reason: `Doctor does not work on ${dayName}s`,
+        });
+      }
+
+      // Generate slots based on doctor's hours
+      const [startHour, startMin] = availability.startTime
+        .split(":")
+        .map(Number);
+      const [endHour, endMin] = availability.endTime.split(":").map(Number);
+
+      const slots = [];
+      let current = startHour * 60 + startMin;
+      const end = endHour * 60 + endMin;
+
+      while (current + 30 <= end) {
+        const h = Math.floor(current / 60);
+        const m = current % 60;
+        const ampm = h >= 12 ? "PM" : "AM";
+        const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
+        slots.push(`${displayH}:${m.toString().padStart(2, "0")} ${ampm}`);
+        current += 30;
+      }
+
+      // Remove already booked slots
       const booked = await Appointment.find({
         doctorId,
-        date: { $gte: startOfDay, $lte: endOfDay },
+        date: new Date(date),
         status: { $in: ["Pending", "Confirmed"] },
       });
-
       const bookedSlots = booked.map((a) => a.timeSlot);
-      const availableSlots = allSlots.filter((s) => !bookedSlots.includes(s));
+      const availableSlots = slots.filter((s) => !bookedSlots.includes(s));
 
-      res.json({ allSlots, availableSlots, bookedSlots });
+      res.json({ availableSlots });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

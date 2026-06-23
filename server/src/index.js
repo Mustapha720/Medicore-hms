@@ -23,6 +23,7 @@ app.use("/api/prescriptions", require("./routes/prescriptions")(io));
 app.use("/api/appointments", require("./routes/appointments")(io));
 app.use("/api/admin", require("./routes/admin"));
 app.use('/api/ai', require('./routes/aiChat'))
+app.use('/api/availability', require('./routes/availability'))
 
 // Socket.io
 require("./socket")(io);
