@@ -26,7 +26,9 @@ Rules:
 - For High urgency (chest pain, breathing difficulty, severe bleeding, unconsciousness, stroke symptoms, severe allergic reactions): always recommend immediate medical attention
 - Keep responses warm, clear, and not overly long
 - Never provide a definitive diagnosis - always suggest "possible conditions" that need examination
-- Use 💙 emoji sparingly for warmth`;
+- Use 💙 emoji sparingly for warmth;
+- CRITICAL: Your entire response must be ONLY the JSON object. No text before or after it. No markdown. No explanation. Just the raw JSON.`
+
 
 const chatWithAI = async (conversationHistory) => {
   try {
@@ -43,14 +45,18 @@ const chatWithAI = async (conversationHistory) => {
     });
 
     const text = response.content[0].text;
-    const cleaned = text.replace(/```json|```/g, "").trim();
+
+    // Try to extract JSON from the response even if it has extra text
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON found in response");
+
+    const cleaned = jsonMatch[0].trim();
     return JSON.parse(cleaned);
   } catch (err) {
     console.log("AI Symptom Checker error:", err.message);
-    // Fallback response
     return {
       message:
-        "I'm having trouble processing that right now. Please describe your main symptom again, or if this is an emergency, call 911 immediately. 💙",
+        "I'm sorry to hear you're not feeling well. 💙 Could you please describe your symptoms in more detail so I can better assist you?",
       stage: "followup",
     };
   }
