@@ -124,7 +124,8 @@ function AvailabilityTab({ isMobile }: { isMobile: boolean }) {
     const today = new Date().toISOString().split('T')[0]
 
     return (
-        <div style={{ padding: isMobile ? '1.25rem' : '2rem', maxWidth: 700 }}>
+        // <div style={{ padding: isMobile ? '1.25rem' : '2rem', maxWidth: 700 }}>
+        <div style={{ padding: isMobile ? '1.25rem' : '2rem', maxWidth: 700, overflowY: 'auto', height: '100%' }}>
             <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'white', marginBottom: '0.25rem' }}>My Availability</h2>
             <p style={{ color: '#6b7280', fontSize: '0.82rem', marginBottom: '1.5rem' }}>
                 Set your working days, hours, and block dates when you're unavailable
